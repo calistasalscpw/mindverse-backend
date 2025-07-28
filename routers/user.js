@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { bcrypt } from 'bcrypt';
+import bcrypt from 'bcrypt';
 import User from '../models/users.model.js'
 import passport from "passport";
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
-import upload from './../modules/upload.model.js';
+// import upload from './../modules/upload.model.js';
 
 const router = Router();
 
@@ -16,7 +16,8 @@ const transporter = nodemailer.createTransport({
     }
 })
 
-router.post("/signup", upload.single('profileImageUrl'), async (req, res)=> {
+router.post("/signup", //upload.single('profileImageUrl'), 
+    async (req, res)=> {
     const {email, username, password} = req.body;
     const profileImageUrl = req.file ? req.file.location : undefined;
 
@@ -149,3 +150,5 @@ router.get("/profile", passport.authenticate("jwt", { session: false }), (req, r
     const { username, email, _id, profileImageUrl } = req.user;
     res.json({ username, email, _id, profileImageUrl });
 });
+
+export default router;

@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/calistasalscpw/mindverse-backend#readme",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "connect-mongo": "^5.1.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -35,6 +36,5 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.7.1"
-  },
-  "devDependencies": {}
+  }
 }

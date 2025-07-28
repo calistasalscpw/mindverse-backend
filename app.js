@@ -4,6 +4,8 @@ import passport from 'passport';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
+import userRouter from './routers/user.js'
+
 const app = express();
 app.use(cookieParser());
 app.use(cors());
