@@ -30,10 +30,10 @@ const UserSchema = new Schema(
         profileImageUrl: String,
         socialId: String,
         // posts: [{type: mongoose.Schema.Types.ObjectId, ref: "Post"}],
-        // isVerified: {
-        //     type: Boolean,
-        //     default: false
-        // }
+        isVerified: {
+            type: Boolean,
+            default: false
+        }
     }
 )
 

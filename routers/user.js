@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from 'bcrypt';
 import User from '../models/users.model.js'
-import passport from "passport";
+import passport from "../config/passport.js";
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 // import upload from './../modules/upload.model.js';

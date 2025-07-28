@@ -3,7 +3,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { ExtractJwt, Strategy as JwtStrategy } from "passport-jwt";
 import { Strategy as GoogleStrategy } from "passport-google-oauth2";
 import bcrypt from "bcrypt";
-import User from "../models/users.model";
+import User from "../models/users.model.js";
 import dotenv from 'dotenv';
 dotenv.config()
 
