@@ -19,7 +19,7 @@ router.get('/:postId', async (req, res) => {
 // router.use('/:postId/comments', commentRouter); 
 
 //TODO ADD ISUSERVALIDATOR
-router.post('/forum', async(req, res) => {
+router.post('/', async(req, res) => {
     try {
         const {title, body} = req.body;
         const createdPost = await Post.create({
