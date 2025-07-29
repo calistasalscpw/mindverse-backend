@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+import mongoose, {Schema} from "mongoose";
 
-const taskSchema = new mongoose.Schema(
+const TaskSchema = new Schema(
     {
         name: {
             type: String,
@@ -32,4 +32,6 @@ const taskSchema = new mongoose.Schema(
     }
 );
 
-export default mongoose.model("Task", taskSchema);
+const Task = mongoose.model("Task", TaskSchema)
+
+export default Task;
