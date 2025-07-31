@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import Post from '../models/posts.model.js';
 import User from '../models/users.model.js';
+import Comment from '../models/comments.model.js';
+import commentRouter from './comment.js';
 
 const router = Router();
 
+router.use('/:postId/comments', commentRouter); 
 router.get('/:postId', async (req, res) => {
     try {
         const results = await Post.findById(req.params.postId).populate('author', 'username');
