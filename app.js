@@ -5,8 +5,9 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
 import userRouter from './routers/user.js';
+import taskRouter from './routers/task.js'; 
 import postRouter from './routers/post.js';
-import commentRouter from './routers/comment.js'; // add commentRouter
+import commentRouter from './routers/comment.js';
 
 const app = express(); 
 
@@ -28,6 +29,7 @@ app.use((req, res, next) => {
 });
 
 app.use('/auth', userRouter); 
+app.use('/tasks', taskRouter); 
 app.use('/forum', postRouter);
 
 app.use((err, req, res, next) => {

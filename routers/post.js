@@ -7,7 +7,6 @@ import commentRouter from './comment.js';
 const router = Router();
 
 router.use('/:postId/comments', commentRouter); 
-
 router.get('/:postId', async (req, res) => {
     try {
         const results = await Post.findById(req.params.postId).populate('author', 'username');
