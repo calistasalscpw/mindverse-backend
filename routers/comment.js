@@ -1,7 +1,8 @@
-import express from 'express';
+import {Router} from 'express';
+import Post from '../models/posts.model.js';
 import Comment from '../models/comments.model.js';
 
-const router = express.Router();
+const router = Router({ mergeParams: true });
 
 // Middleware untuk mengambil postId dari parent router
 router.use((req, res, next) => {
