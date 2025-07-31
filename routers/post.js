@@ -3,6 +3,7 @@ import Post from '../models/posts.model.js';
 import User from '../models/users.model.js';
 import Comment from '../models/comments.model.js';
 import commentRouter from './comment.js';
+import { isUserValidator, isSameUserValidator } from '../validators/post.validator.js';
 
 const router = Router();
 
@@ -18,8 +19,6 @@ router.get('/:postId', async (req, res) => {
         res.status(500).json({message: err.message})
     }
 })
-
-// router.use('/:postId/comments', commentRouter); 
 
 //TODO ADD ISUSERVALIDATOR
 router.post('/', async(req, res) => {

@@ -13,6 +13,7 @@ const TaskSchema = new Schema(
             type: String,
             enum: ["ToDo", "In Progress", "Done"],
             required: true,
+            default: "ToDo"
         },
         index: {
             type: Number,

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import Task from '../models/tasks.model.js';
 import User from '../models/users.model.js';
+import { isUserValidator, isSameUserValidator } from '../validators/task.validator.js';
 
 const router = Router();
 
