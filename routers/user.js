@@ -19,7 +19,7 @@ const transporter = nodemailer.createTransport({
 router.get('/', async (req, res) => {
     try{
         const users = await User.find({}, 'username email');
-        res.json(users);
+        res.status(200).json(users);
     } catch (err){
         res.status(500).json({message: "An error occured while fetching users."})
     }
