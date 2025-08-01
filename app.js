@@ -13,7 +13,11 @@ const app = express();
 
 // dotenv.config();
 app.use(cookieParser());
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:5173', // Your frontend's address
+    credentials: true, // Allow cookies to be sent
+}));
+
 app.use(express.json());
 app.use(express.static("public"));
 app.use(express.urlencoded({extended: true}));

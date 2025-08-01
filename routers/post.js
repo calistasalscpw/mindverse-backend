@@ -7,6 +7,38 @@ import { isUserValidator, isSameUserValidator } from '../validators/post.validat
 
 const router = Router();
 
+router.get('/', async (req, res) => {
+    try {
+        const keyword = req.query.keyword || '';
+        const page = Number(req.query.page) || 1;
+        const pageSize = Number(req.query.pageSize) || 5;
+        const skip = (page - 1) * pageSize;
+        
+        const query = keyword ? {
+            $or: [
+                { title: { $regex: keyword, $options: 'i' } },
+                { body: { $regex: keyword, $options: 'i' } }
+            ]
+        } : {};
+
+        const total = await Post.countDocuments(query);
+        const posts = await Post.find(query)
+            .populate('author', 'username profileImageUrl') // To get author details
+            .sort({ createdAt: -1 }) // Show newest first
+            .skip(skip)
+            .limit(pageSize);
+
+        res.json({
+            data: posts,
+            total,
+            page,
+            pageSize
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 router.use('/:postId/comments', commentRouter); 
 router.get('/:postId', async (req, res) => {
     try {
