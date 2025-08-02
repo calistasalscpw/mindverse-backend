@@ -11,7 +11,7 @@ const TaskSchema = new Schema(
         },
         progressStatus: {
             type: String,
-            enum: ["ToDo", "In Progress", "Done"],
+            enum: ["ToDo", "In Progress", "Review", "Done"],
             required: true,
             default: "ToDo"
         },
