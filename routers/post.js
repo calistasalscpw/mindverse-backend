@@ -42,11 +42,12 @@ router.get('/', async (req, res) => {
 router.use('/:postId/comments', commentRouter); 
 router.get('/:postId', async (req, res) => {
     try {
-        const results = await Post.findById(req.params.postId).populate('author', 'username');
-        if (!results){
+        const post = await Post.findById(req.params.postId).populate('author', 'username');
+        if (!post){
             return res.status(404).json({error: 'Post not found'});
         }
-        res.json(results);
+        const comments = await Comment.find({ postId: req.params.postId });
+        res.json({ ...post.toObject(), comments });
     } catch (err){
         res.status(500).json({message: err.message})
     }
