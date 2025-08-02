@@ -34,11 +34,11 @@ const jwtOption = {
     secretOrKey: process.env.JWT_SECRET_KEY
 }
 
-/*const googleOption = {
+const googleOption = {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_SECRET, 
     callbackURL: 'http://localhost:3000/auth/login/google/callback'
-}*/
+}
 
 passport.use(
     "jwt",
@@ -51,7 +51,6 @@ passport.use(
     })
 )
 
-/*
 passport.use(
     new GoogleStrategy(googleOption, async (assessToken, refeshToken, profile, done) => {
         try{
@@ -76,6 +75,5 @@ passport.use(
         }
     })
 )
-    */
 
 export default passport;

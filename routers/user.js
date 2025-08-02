@@ -100,7 +100,11 @@ router.post("/login", passport.authenticate("local", {
             _id: req.user._id,
             username: req.user.username,
             email: req.user.email,
-            profileImageUrl: req.user.profileImageUrl
+            profileImageUrl: req.user.profileImageUrl,
+            isLead: req.user.isLead,
+            isHR: req.user.isHR,
+            registerType: req.user.registerType,
+            isVerified: req.user.isVerified
         };
     }
     res.cookie("token", token)
@@ -156,8 +160,8 @@ router.get("/profile", passport.authenticate("jwt", { session: false }), (req, r
         return res.status(401).json({ message: "Unauthorized: No token provided or token is invalid" });
     }
     // Return user data (without the hashed password)
-    const { username, email, _id, profileImageUrl } = req.user;
-    res.json({ username, email, _id, profileImageUrl });
+    const { username, email, _id, profileImageUrl, isLead, isHR, registerType, isVerified } = req.user;
+    res.json({ username, email, _id, profileImageUrl, isLead, isHR, registerType, isVerified });
 });
 
 export default router;
