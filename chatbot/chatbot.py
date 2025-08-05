@@ -48,7 +48,6 @@ class MindVerseAI:
             return {"error": str(e)}
 
     def analyze_query_intent(self, query):
-        """Analyze query to determine specific intent and extract filters with context mapping"""
         query_lower = query.lower()
         intent = {
             "type": "general",
@@ -109,7 +108,6 @@ class MindVerseAI:
         return intent
 
     def search_with_intent(self, query, intent, max_results=10):
-        """Enhanced search based on query intent"""
         try:
             if intent["type"] == "tasks":
                 return self.search_tasks_enhanced(query, intent["filters"], max_results)
@@ -193,7 +191,6 @@ class MindVerseAI:
             return []
 
     def format_context_from_results(self, results, query_type="general"):
-        """Format search results into clean, user-friendly context for AI"""
         if not results:
             return ""
         
@@ -279,10 +276,8 @@ class MindVerseAI:
             
             formatted_results = []
             for item in results:
-                # Get author info - try to find actual author name
                 author_info = item.get('author', 'Unknown')
                 
-                # If author is an ObjectId, try to get username from users collection
                 if hasattr(author_info, '__str__') and len(str(author_info)) > 20:
                     try:
                         user = self.users_collection.find_one({"_id": author_info})
@@ -310,8 +305,6 @@ class MindVerseAI:
 
     def search_users(self, query, max_results=5):
         try:
-            # Users collection doesn't exist based on the screenshots, 
-            # but we'll keep this for future use
             search_filter = {
                 "$or": [
                     {"name": {"$regex": query, "$options": "i"}},
@@ -337,7 +330,6 @@ class MindVerseAI:
             return []
 
     def chat(self, user_query, max_results_each=10, include_metadata=False):
-        """Enhanced chat function with better context awareness and multilingual support"""
         try:
             # Analyze query intent
             intent = self.analyze_query_intent(user_query)

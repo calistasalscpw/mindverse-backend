@@ -2,7 +2,7 @@ import { Router } from 'express';
 import Task from '../models/tasks.model.js';
 import User from '../models/users.model.js';
 import { createMemoryRouter } from 'react-router-dom';
-// import { isUserValidator, isSameUserValidator } from '../validators/task.validator.js';
+import { isUserValidator, isSameUserValidator } from '../validators/task.validator.js';
 
 const router = Router();
 
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
 });
 
 // --- PATCH /tasks/:taskId/status - All logged-in users can change status (drag-and-drop) ---
-router.patch('/:taskId/status', async (req, res) => {
+router.patch('/:taskId/status', isUserValidator, async (req, res) => {
   try {
     const { taskId } = req.params;
     const { progressStatus } = req.body;
