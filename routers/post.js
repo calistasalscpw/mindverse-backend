@@ -54,7 +54,7 @@ router.get('/:postId', async (req, res) => {
 })
 
 //TODO ADD ISUSERVALIDATOR
-router.post('/', async(req, res) => {
+router.post('/', isUserValidator, async(req, res) => {
     try {
         const {title, body} = req.body;
         const createdPost = await Post.create({
