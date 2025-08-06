@@ -3,15 +3,27 @@ import json
 from pymongo import MongoClient
 from datetime import datetime
 import re
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class MindVerseAI:
-    def __init__(self, openai_api_key, mongo_uri=None, verbose=False):
-        self.api_key = openai_api_key
+    def __init__(self, openai_api_key=None, mongo_uri=None, verbose=False):
+        # Read from .env file if not provided
+        self.api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
         self.verbose = verbose
+        
+        if not self.api_key:
+            raise ValueError("OpenAI API key is required. Please set OPENAI_API_KEY in .env file or pass it as parameter.")
         
         # MongoDB Atlas connection
         if mongo_uri is None:
-            mongo_uri = "mongodb+srv://Python:K60wVjdLcDruClvl@cluster0.fbol8bw.mongodb.net/"
+            mongo_uri = os.getenv('MONGO_URL')
+            
+        if not mongo_uri:
+            raise ValueError("MongoDB URI is required. Please set MONGO_URL in .env file or pass it as parameter.")
         
         try:
             self.mongo_client = MongoClient(mongo_uri)
@@ -56,8 +68,15 @@ class MindVerseAI:
             "specific_search": False
         }
         
+        # Check for specific keywords in forum posts first
+        # This will help catch questions that might have answers in the forum
+        forum_keywords = ['pompia', 'tutorial', 'wifi', 'maintenance', 'lunch', 'team']
+        if any(keyword in query_lower for keyword in forum_keywords):
+            intent["type"] = "posts"
+            intent["specific_search"] = True
+        
         # Task-specific intents with context mapping
-        if any(word in query_lower for word in ['task', 'tugas', 'pekerjaan', 'kerja']):
+        elif any(word in query_lower for word in ['task', 'tugas', 'pekerjaan', 'kerja']):
             intent["type"] = "tasks"
             
             # Map different ways to ask about "In Progress" status
@@ -74,7 +93,6 @@ class MindVerseAI:
                 'belum selesai', 'belum mulai', 'belum dikerjakan', 'pending',
                 'need to be done', 'not started', 'waiting'
             ]):
-                # Use exact match for "ToDo" (without space based on database structure)
                 intent["filters"]["progressStatus"] = "ToDo"
                 intent["specific_search"] = True
                 
@@ -110,21 +128,38 @@ class MindVerseAI:
 
     def search_with_intent(self, query, intent, max_results=10):
         try:
+            # Always search posts first for any query that might have forum content
+            all_results = []
+            
+            # Priority 1: Search posts first (forum is important!)
+            post_results = self.search_posts(query, max_results // 2)
+            all_results.extend(post_results)
+            
             if intent["type"] == "tasks":
-                return self.search_tasks_enhanced(query, intent["filters"], max_results)
+                task_results = self.search_tasks_enhanced(query, intent["filters"], max_results)
+                all_results.extend(task_results)
             elif intent["type"] == "users":
-                return self.search_users(query, max_results)
+                user_results = self.search_users(query, max_results)
+                all_results.extend(user_results)
             elif intent["type"] == "posts":
-                return self.search_posts(query, max_results)
+                # Already searched above, but get more results
+                additional_posts = self.search_posts(query, max_results)
+                all_results = additional_posts  # Replace with more comprehensive search
             elif intent["type"] == "comments":
-                return self.search_comments(query, max_results)
+                comment_results = self.search_comments(query, max_results)
+                all_results.extend(comment_results)
             else:
-                # General search across all collections
-                results = []
-                results.extend(self.search_tasks_enhanced(query, {}, 3))
-                results.extend(self.search_posts(query, 2))
-                results.extend(self.search_comments(query, 2))
-                return results[:max_results]
+                # General search - comprehensive across all collections with posts priority
+                all_results.extend(self.search_tasks_enhanced(query, {}, 2))
+                all_results.extend(self.search_comments(query, 2))
+                all_results.extend(self.search_users(query, 2))
+            
+            if self.verbose:
+                print(f"Total search results found: {len(all_results)}")
+                for result in all_results:
+                    print(f"  - {result.get('type', 'unknown')}: {result.get('title', result.get('name', 'N/A'))}")
+            
+            return all_results[:max_results]
                 
         except Exception as e:
             if self.verbose:
@@ -196,47 +231,86 @@ class MindVerseAI:
             return ""
         
         context = ""
+        source_info = []
         
         if query_type == "tasks":
-            context = "Task List:\n"
+            context = "Task Information:\n"
             for item in results:
                 if item.get("type") == "task":
                     task_name = item['name']
                     status = item['progressStatus']
+                    assignee = item.get('assignee', 'Unassigned')
                     description = item.get('description', '').strip()
                     
-                    # Start with basic format
+                    # Build task line with source info
                     task_line = f"• {task_name} ({status})"
+                    if assignee != 'Unassigned':
+                        task_line += f" - assigned to {assignee}"
                     
                     # Add meaningful description only
                     if (description and 
                         description not in ['N/A', 'This is a test task.', 'This is a test task. Hello', 'just test', ''] and
                         len(description) > 5):
-                        # Clean and shorten description
                         clean_desc = description.replace('Team needs to tidy up documentation of the project code', 'Team needs to tidy up project code docs')
-                        clean_desc = clean_desc.replace("Don't forget to register diploy", "Don't forget to register diploy")
-                        
                         if len(clean_desc) > 50:
                             clean_desc = clean_desc[:50] + "..."
                         task_line += f" - {clean_desc}"
                     
                     context += task_line + "\n"
+                    source_info.append("Tasks Database")
+                    
+        elif query_type == "posts":
+            context = "Forum Posts:\n"
+            for item in results:
+                if item.get("type") == "post":
+                    title = item.get('title', 'Untitled Post')
+                    author = item.get('author', 'Unknown')
+                    content = item.get('content', '')[:100] + "..." if len(item.get('content', '')) > 100 else item.get('content', '')
+                    
+                    context += f"• Post '{title}' by {author}\n"
+                    if content.strip():
+                        context += f"  Content: {content}\n"
+                    source_info.append(f"Forum by {author}")
+                    
+        elif query_type == "users":
+            context = "Team Members:\n"
+            for item in results:
+                if item.get("type") == "user":
+                    name = item.get('name', 'Unknown')
+                    role = item.get('role', 'No role specified')
+                    email = item.get('email', '')
+                    
+                    context += f"• {name}"
+                    if role and role != 'No role specified':
+                        context += f" ({role})"
+                    if email:
+                        context += f" - {email}"
+                    context += "\n"
+                    source_info.append("User Directory")
+                    
         else:
             # General formatting for mixed results
             for item in results:
                 if item.get("type") == "task":
-                    context += f"• {item['name']} ({item['progressStatus']})\n"
+                    context += f"• Task: {item['name']} ({item['progressStatus']})\n"
+                    source_info.append("Tasks Database")
                 elif item.get("type") == "post":
-                    context += f"• Post: {item.get('title', 'No Title')}\n"
+                    author = item.get('author', 'Unknown')
+                    context += f"• Forum Post: {item.get('title', 'No Title')} by {author}\n"
+                    source_info.append(f"Forum by {author}")
                 elif item.get("type") == "comment":
+                    author = item.get('author', 'Unknown')
                     content = item.get('content', 'No content')
                     if len(content) > 40:
                         content = content[:40] + "..."
-                    context += f"• Comment: {content}\n"
+                    context += f"• Comment by {author}: {content}\n"
+                    source_info.append(f"Comments by {author}")
                 elif item.get("type") == "user":
-                    context += f"• User: {item.get('name', 'No name')}\n"
+                    context += f"• Team Member: {item.get('name', 'No name')}\n"
+                    source_info.append("User Directory")
         
-        return context.strip() 
+        # Return both context and source info
+        return context.strip(), list(set(source_info)) 
 
     def search_comments(self, query, max_results=5):
         try:
@@ -266,6 +340,7 @@ class MindVerseAI:
 
     def search_posts(self, query, max_results=5):
         try:
+            # Enhanced search for posts with better field matching
             search_filter = {
                 "$or": [
                     {"title": {"$regex": query, "$options": "i"}},
@@ -275,25 +350,34 @@ class MindVerseAI:
             
             results = list(self.posts_collection.find(search_filter).limit(max_results))
             
+            if self.verbose:
+                print(f"Found {len(results)} posts for query: {query}")
+            
             formatted_results = []
             for item in results:
+                # Get author information
                 author_info = item.get('author', 'Unknown')
                 
+                # If author is ObjectId, try to get username from users collection
                 if hasattr(author_info, '__str__') and len(str(author_info)) > 20:
                     try:
-                        user = self.users_collection.find_one({"_id": author_info})
-                        if user:
-                            author_info = user.get('username', user.get('name', 'Unknown'))
-                        else:
-                            author_info = 'Unknown'
+                        from bson import ObjectId
+                        if isinstance(author_info, ObjectId):
+                            user = self.users_collection.find_one({"_id": author_info})
+                            if user:
+                                author_info = user.get('username', user.get('name', 'Unknown User'))
+                            else:
+                                author_info = 'Unknown User'
                     except:
-                        author_info = 'Unknown'
+                        author_info = 'Unknown User'
                 
                 formatted_result = {
                     "type": "post",
                     "title": item.get('title', 'No Title'),
                     "content": item.get('body', ''),
-                    "author": str(author_info)
+                    "author": str(author_info),
+                    "created_at": item.get('createdAt', ''),
+                    "raw_data": item  # Keep raw data for debugging
                 }
                 formatted_results.append(formatted_result)
             
@@ -341,44 +425,50 @@ class MindVerseAI:
             # Search based on intent
             search_results = self.search_with_intent(user_query, intent, max_results_each)
             
-            # Format context
-            context = self.format_context_from_results(search_results, intent["type"])
+            # Format context and get source information
+            context_result = self.format_context_from_results(search_results, intent["type"])
+            if isinstance(context_result, tuple):
+                context, detailed_sources = context_result
+            else:
+                context = context_result
+                detailed_sources = []
             
-            # Enhanced system message with natural conversation style
-            system_message = """You are MindVerse AI Assistant, a friendly and helpful AI that assists users with their workspace. Be conversational, natural, and helpful.
+            # Enhanced system message with natural conversation style and source attribution
+            system_message = """You are MindVerse AI Assistant, a knowledgeable and friendly AI that helps users with their workspace questions. Be conversational, professional, and natural in your responses.
 
-IMPORTANT RESPONSE STYLE:
-- Write in a natural, conversational tone
-- Don't sound robotic or overly formal
-- Be helpful and friendly
-- Keep responses concise but informative
-- Use casual language when appropriate
+RESPONSE GUIDELINES:
+- If you find relevant data in the workspace, start with clear source attribution
+- If no workspace data is found, directly provide helpful general information without apologizing
+- Never start with "I'm sorry, but I couldn't find..." - just be helpful
+- Use natural phrases like "Based on your forum posts...", "Looking at your task database..." when you have data
+- Be specific about sources when possible (e.g., "According to Fitra's forum post...")
+- After providing information, feel free to add helpful context
+- Keep responses professional but friendly and conversational
+- Use proper formatting with line breaks between different sections
 
-For FORUM/POST questions:
-- When user asks about posts like "dev jokes" or "monday activity"
-- Give a natural response like: "I found a post called 'Dev Jokes' by Mr. Python! It's got a funny JavaScript joke about broken promises."
-- Include the actual content/joke if it's short and relevant
-- Be enthusiastic about sharing interesting content
+WHEN YOU HAVE WORKSPACE DATA:
+- "Based on your task database, I can see that..."
+- "Looking at the forum posts, I found that Fitra mentioned..."  
+- "According to your team directory..."
+- "From your project discussions..."
 
-For TASK questions:  
-- Use natural language: "Here are the tasks currently in progress:" followed by clean bullet points
-- Add friendly touches like "Let me know if you need more details!"
+WHEN YOU DON'T HAVE WORKSPACE DATA:
+- Just provide helpful general information directly
+- You can mention it's general knowledge if relevant
+- Be naturally helpful without mentioning database limitations
 
-For ASSIGNMENT questions:
-- Answer directly: "The Register Deploy task is being handled by John Smith" 
-- Or: "Looks like no one is assigned to that task yet"
+RESPONSE STRUCTURE:
+1. Lead with the most relevant information (workspace or general)
+2. Present information clearly and naturally
+3. Add helpful context or suggestions if relevant
+4. Keep it conversational and engaging
 
-FORMATTING:
-- Use proper line breaks (\n) between bullet points
-- Keep it clean but conversational
-- Add helpful context or suggestions when relevant
-
-Be human-like in your responses while staying professional and helpful."""
+Be helpful and engaging while maintaining professionalism."""
 
             if context:
-                system_message += f"\n\nDatabase data (use this data to answer):\n{context}"
+                system_message += f"\n\nDATA FROM YOUR WORKSPACE:\n{context}\n\nDetailed Sources: {', '.join(detailed_sources) if detailed_sources else 'Internal Database'}"
             else:
-                system_message += "\n\nNo specific data found in the database for this query."
+                system_message += f"\n\nNo specific workspace data found for this query. Provide helpful general information directly without mentioning database limitations."
             
             messages = [
                 {"role": "system", "content": system_message},
@@ -393,7 +483,7 @@ Be human-like in your responses while staying professional and helpful."""
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "gpt-3.5-turbo",  # You can change this to "gpt-4" if you prefer
+                    "model": "gpt-4",  # Using GPT-4
                     "messages": messages,
                     "max_tokens": 1500,
                     "temperature": 0.3  # Lower temperature for more consistent responses
@@ -405,18 +495,24 @@ Be human-like in your responses while staying professional and helpful."""
             
             answer = result['choices'][0]['message']['content']
             
-            # Determine sources used
+            # Determine sources used with more detail
             sources_used = []
             if search_results:
-                result_types = set(item.get("type", "unknown") for item in search_results)
-                if "task" in result_types:
-                    sources_used.append("Tasks")
-                if "post" in result_types:
-                    sources_used.append("Posts")
-                if "comment" in result_types:
-                    sources_used.append("Comments")
-                if "user" in result_types:
-                    sources_used.append("Users")
+                for item in search_results:
+                    item_type = item.get("type", "unknown")
+                    if item_type == "task":
+                        sources_used.append("Tasks Database")
+                    elif item_type == "post":
+                        author = item.get('author', 'Unknown')
+                        sources_used.append(f"Forum Posts by {author}")
+                    elif item_type == "comment":
+                        author = item.get('author', 'Unknown')
+                        sources_used.append(f"Comments by {author}")
+                    elif item_type == "user":
+                        sources_used.append("Team Directory")
+                
+                # Remove duplicates while preserving order
+                sources_used = list(dict.fromkeys(sources_used))
             
             if include_metadata:
                 return {
@@ -498,15 +594,14 @@ Be human-like in your responses while staying professional and helpful."""
             self.mongo_client.close()
 
 def main():
-    # Updated to use OpenAI API key
-    OPENAI_API_KEY = ""
-    
+    # Read from .env file automatically
     try:
-        chatbot = MindVerseAI(OPENAI_API_KEY, verbose=True)
+        chatbot = MindVerseAI(verbose=True)
         chatbot.interactive_chat()
         
     except Exception as e:
         print(f"Failed to initialize: {e}")
+        print("Make sure your .env file contains OPENAI_API_KEY and MONGO_URL")
     finally:
         try:
             chatbot.close()

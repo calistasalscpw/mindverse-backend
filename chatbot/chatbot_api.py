@@ -3,6 +3,10 @@ import json
 import os
 import re
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add current directory to Python path
 current_dir = Path(__file__).parent
@@ -43,9 +47,14 @@ def initialize_chatbot():
         return None, "MindVerseAI module not available"
     
     try:
-        # Updated to use OpenAI API key
-        api_key = os.getenv('OPENAI_API_KEY', '')
-        mongo_uri = os.getenv('MONGO_URI', 'mongodb+srv://Python:K60wVjdLcDruClvl@cluster0.fbol8bw.mongodb.net/')
+        # Read from .env file
+        api_key = os.getenv('OPENAI_API_KEY')
+        mongo_uri = os.getenv('MONGO_URL')
+        
+        if not api_key:
+            return None, "OPENAI_API_KEY not found in .env file"
+        if not mongo_uri:
+            return None, "MONGO_URL not found in .env file"
         
         # Disable verbose mode to avoid JSON parsing issues
         chatbot = MindVerseAI(api_key, mongo_uri, verbose=False)
