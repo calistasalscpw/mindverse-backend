@@ -4,7 +4,6 @@ import User from '../models/users.model.js'
 import passport from "../config/passport.js";
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
-// import upload from './../modules/upload.model.js';
 
 const router = Router();
 
@@ -25,10 +24,10 @@ router.get('/', async (req, res) => {
     }
 });
 
-router.post("/signup", //upload.single('profileImageUrl'), 
+router.post("/signup",
     async (req, res)=> {
-    const {email, username, password} = req.body;
-    const profileImageUrl = req.file ? req.file.location : undefined;
+    const {email, username, password, profileImageUrl} = req.body;
+    // const profileImageUrl = req.file ? req.file.location : undefined;
 
     const existingUser = await User.findOne({ email });
     if (existingUser){
