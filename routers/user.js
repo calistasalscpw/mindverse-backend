@@ -44,7 +44,10 @@ router.post("/signup", //upload.single('profileImageUrl'),
     })
 
     const verificationToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '1d' });
-    const verificationLink = `http://localhost:3000/auth/verify-email?token=${verificationToken}`;
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    const verificationLink = `${backendUrl}/auth/verify-email?token=${verificationToken}`;
 
     await transporter.sendMail({
         from: '"KADA Blog" <calistasalsa.cpw@gmail.com>',
@@ -74,7 +77,7 @@ router.get("/verify-email", async (req, res) => {
         }
         user.isVerified = true;
         await user.save();
-        res.redirect("http://localhost:5173/auth/login?verified=true");
+        res.redirect(`${frontendUrl}/auth/login?verified=true`);
     } catch (err){
         res.status(400).json({ message: "Invalid or expired verification token" });
     }
@@ -148,9 +151,10 @@ router.get("/login/google/callback",
             const payload = {_id};
             token = jwt.sign(payload, process.env.JWT_SECRET_KEY)
             res.cookie("token", token)
-            res.redirect("http://localhost:5173/")
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            res.redirect(`${frontendUrl}/`);
         } else {
-            res.redirect("http://localhost:5173/auth/login?error=google-auth-failed");
+            res.redirect(`${frontendUrl}/auth/login?error=google-auth-failed`);
         }
     }
 )

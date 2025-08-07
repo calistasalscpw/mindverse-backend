@@ -34,10 +34,12 @@ const jwtOption = {
     secretOrKey: process.env.JWT_SECRET_KEY
 }
 
+const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+
 const googleOption = {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_SECRET,
-    callbackURL: 'http://localhost:3000/auth/login/google/callback'
+    callbackURL: `${backendUrl}/auth/login/google/callback`
 }
 
 passport.use(
