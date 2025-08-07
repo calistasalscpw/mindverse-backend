@@ -7,7 +7,7 @@ import User from '../models/users.model.js';
 
 const router = Router();
 
-// Middleware untuk Lead/HR only
+// Middleware to restrict access to Lead/HR only
 function requireLeadOrHR(req, res, next) {
   if (!req.user || (!req.user.isLead && !req.user.isHR)) {
     return res.status(403).json({ message: 'Only Lead or HR can schedule meetings.' });
@@ -15,7 +15,7 @@ function requireLeadOrHR(req, res, next) {
   next();
 }
 
-// Call Python untuk meeting analysis
+// Call Python script for AI meeting analysis
 const callMeetingAnalysis = (taskData) => {
   return new Promise((resolve, reject) => {
     const python = spawn('python', [
@@ -32,19 +32,20 @@ const callMeetingAnalysis = (taskData) => {
 
     python.stderr.on('data', (data) => {
       errorString += data.toString();
-      console.error('Python stderr:', data.toString());
     });
 
     python.on('close', (code) => {
-      console.log(`Python meeting analysis exited with code: ${code}`);
-      
       if (code === 0) {
         try {
           const result = JSON.parse(dataString.trim());
-          console.log('Meeting analysis result:', result);
-          resolve(result);
+          
+          // Validate response structure
+          if (result && result.success && result.analysis) {
+            resolve(result);
+          } else {
+            reject(new Error('Invalid Python response structure'));
+          }
         } catch (parseError) {
-          console.error('Parse error:', parseError);
           reject(new Error(`Failed to parse Python response: ${parseError.message}`));
         }
       } else {
@@ -53,43 +54,54 @@ const callMeetingAnalysis = (taskData) => {
     });
 
     python.on('error', (error) => {
-      console.error('Python process error:', error);
       reject(new Error(`Failed to start Python process: ${error.message}`));
     });
   });
 };
 
-// Email transporter - reuse configuration from user.js
+// Email transporter configuration
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "calistasalsa.cpw@gmail.com", // Use working email from user.js
+    user: "calistasalsa.cpw@gmail.com",
     pass: process.env.GOOGLE_APP_PASSWORD
   }
 });
 
-// POST /meetings/analyze-task - Analyze task untuk meeting suggestion
+// POST /meetings/analyze-task - Analyze task for AI meeting suggestions
 router.post('/analyze-task', requireLeadOrHR, async (req, res) => {
   try {
     const { taskId } = req.body;
     
-    // Get task with assigned users
+    // Validate required fields
+    if (!taskId) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Task ID is required' 
+      });
+    }
+    
+    // Fetch task with assigned users
     const task = await Task.findById(taskId)
       .populate('assignTo', 'username email')
       .exec();
     
     if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Task not found' 
+      });
     }
 
-    // Only analyze tasks that are not Done
+    // Skip analysis for completed tasks
     if (task.progressStatus === 'Done') {
       return res.status(400).json({ 
+        success: false,
         message: 'Cannot schedule meeting for completed tasks' 
       });
     }
 
-    // Prepare task data for analysis
+    // Prepare task data for AI analysis
     const taskData = {
       name: task.name,
       description: task.description || '',
@@ -101,22 +113,31 @@ router.post('/analyze-task', requireLeadOrHR, async (req, res) => {
       }))
     };
 
-    // Call Python analysis
-    const analysis = await callMeetingAnalysis(taskData);
+    // Call Python AI analysis
+    const pythonResult = await callMeetingAnalysis(taskData);
     
-    res.json({
+    // Prepare response with proper structure
+    const response = {
       success: true,
-      analysis,
+      analysis: pythonResult.analysis,
+      source: pythonResult.source || 'openai',
+      tokens_used: pythonResult.tokens_used || 0,
       task: {
         id: task._id,
         name: task.name,
         status: task.progressStatus,
-        assignees: task.assignTo
+        assignees: task.assignTo.map(user => ({
+          username: user.username,
+          email: user.email
+        }))
       }
-    });
+    };
+    
+    res.json(response);
 
   } catch (error) {
     console.error('Meeting analysis error:', error);
+    
     res.status(500).json({
       success: false,
       message: 'Failed to analyze task for meeting',
@@ -125,7 +146,7 @@ router.post('/analyze-task', requireLeadOrHR, async (req, res) => {
   }
 });
 
-// POST /meetings/schedule - Schedule meeting dan kirim email
+// POST /meetings/schedule - Schedule meeting and send email invitations
 router.post('/schedule', requireLeadOrHR, async (req, res) => {
   try {
     const { 
@@ -135,30 +156,32 @@ router.post('/schedule', requireLeadOrHR, async (req, res) => {
       meetingTime, 
       duration, 
       agenda,
-      meetingType // 'internal' or 'google-meet'
+      meetingType
     } = req.body;
 
+    // Fetch task with assigned users
     const task = await Task.findById(taskId)
       .populate('assignTo', 'username email')
       .exec();
 
     if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Task not found' 
+      });
     }
 
-    // Generate meeting ID dan link
+    // Generate meeting ID and link
     const meetingId = `meeting-${Date.now()}`;
     let meetingLink;
     
     if (meetingType === 'google-meet') {
-      // Generate real Google Meet link that opens in browser
       meetingLink = `https://meet.google.com/new`;
     } else {
-      // Internal meeting page (keep existing for internal option)
       meetingLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/meeting/${meetingId}`;
     }
 
-    // Format meeting details
+    // Prepare meeting details
     const meetingDetails = {
       id: meetingId,
       title: meetingTitle,
@@ -171,26 +194,17 @@ router.post('/schedule', requireLeadOrHR, async (req, res) => {
       organizer: req.user.username
     };
 
-    // Log meeting details and assignees info
-    console.log('Meeting Details:', meetingDetails);
-    console.log('Task Assignees:');
-    task.assignTo.forEach((assignee, index) => {
-      console.log(`${index + 1}. ${assignee.username} (${assignee.email})`);
-    });
-
-    // Try to send emails, but don't fail if email service unavailable
+    // Send email invitations
     let emailStatus = 'Email service unavailable';
     let emailsSent = 0;
     
     try {
-      // Check if email configuration is available
       if (process.env.GOOGLE_APP_PASSWORD) {
-        // Send email to all assignees
         const emailPromises = task.assignTo.map(async (assignee) => {
           const emailContent = generateMeetingEmailContent(meetingDetails, assignee.username);
           
           return transporter.sendMail({
-            from: `"${req.user.username} - MindVerse" <calistasalsa.cpw@gmail.com>`, // Use working email from user.js
+            from: `"${req.user.username} - MindVerse" <calistasalsa.cpw@gmail.com>`,
             to: assignee.email,
             subject: `Meeting Scheduled: ${meetingTitle}`,
             html: emailContent
@@ -209,9 +223,6 @@ router.post('/schedule', requireLeadOrHR, async (req, res) => {
       console.error('Email sending failed:', emailError.message);
       emailStatus = `Email sending failed: ${emailError.message}`;
     }
-
-    // Save meeting info to database (optional - create Meeting model)
-    // const meeting = await Meeting.create(meetingDetails);
 
     res.json({
       success: true,
@@ -234,7 +245,7 @@ router.post('/schedule', requireLeadOrHR, async (req, res) => {
   }
 });
 
-// Generate email content untuk meeting invitation
+// Generate HTML email content for meeting invitation
 function generateMeetingEmailContent(meeting, recipientName) {
   const isGoogleMeet = meeting.link.includes('meet.google.com');
   
