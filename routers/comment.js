@@ -1,5 +1,5 @@
 import {Router} from 'express';
-// import Post from '../models/posts.model.js';
+import Post from '../models/posts.model.js';
 import Comment from '../models/comments.model.js';
 
 const router = Router({ mergeParams: true });
