@@ -9,6 +9,7 @@ import taskRouter from './routers/task.js';
 import postRouter from './routers/post.js';
 import commentRouter from './routers/comment.js';
 import chatbotRouter from './routers/chatbot.js';
+import meetingRouter from './routers/meeting.js'; 
 
 const app = express(); 
 
@@ -39,6 +40,7 @@ app.use((req, res, next) => {
 // Mount routes in order of specificity (most specific first)
 app.use('/auth', userRouter); 
 app.use('/tasks', taskRouter); 
+app.use('/meetings', meetingRouter); // Add meetings route
 app.use('/chatbot', chatbotRouter);
 app.use('/forum', postRouter);  // This includes nested comment routes
 
@@ -51,6 +53,7 @@ app.get('/', (req, res) => {
         endpoints: {
             auth: '/auth/*',
             tasks: '/tasks/*',
+            meetings: '/meetings/*', // Add meetings endpoint
             forum: '/forum/*',
             chatbot: '/chatbot/*'
         }
@@ -75,7 +78,7 @@ app.use('/*splat', (req, res) => {
         success: false,
         message: 'Endpoint not found',
         path: req.originalUrl,
-        availableEndpoints: ['/auth', '/tasks', '/forum', '/chatbot', '/health']
+        availableEndpoints: ['/auth', '/tasks', '/meetings', '/forum', '/chatbot', '/health'] // Add meetings to available endpoints
     });
 });
 
