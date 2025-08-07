@@ -17,10 +17,12 @@ const UserSchema = new Schema(
             type: String
         },
         isLead: {
-            type: Boolean
+            type: Boolean,
+            default: false
         },
         isHR: {
-            type: Boolean
+            type: Boolean,
+            default: false
         },
         registerType: {
             type: String,

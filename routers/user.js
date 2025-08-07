@@ -16,6 +16,15 @@ const transporter = nodemailer.createTransport({
     }
 })
 
+router.get('/', async (req, res) => {
+    try{
+        const users = await User.find({}, 'username email isLead isHR');
+        res.status(200).json(users);
+    } catch (err){
+        res.status(500).json({message: "An error occured while fetching users."})
+    }
+});
+
 router.post("/signup", //upload.single('profileImageUrl'), 
     async (req, res)=> {
     const {email, username, password} = req.body;
@@ -91,7 +100,11 @@ router.post("/login", passport.authenticate("local", {
             _id: req.user._id,
             username: req.user.username,
             email: req.user.email,
-            profileImageUrl: req.user.profileImageUrl
+            profileImageUrl: req.user.profileImageUrl,
+            isLead: req.user.isLead,
+            isHR: req.user.isHR,
+            registerType: req.user.registerType,
+            isVerified: req.user.isVerified
         };
     }
     res.cookie("token", token)
@@ -135,7 +148,7 @@ router.get("/login/google/callback",
             const payload = {_id};
             token = jwt.sign(payload, process.env.JWT_SECRET_KEY)
             res.cookie("token", token)
-            res.redirect("http://localhost:5173/posts")
+            res.redirect("http://localhost:5173/")
         } else {
             res.redirect("http://localhost:5173/auth/login?error=google-auth-failed");
         }
@@ -147,8 +160,8 @@ router.get("/profile", passport.authenticate("jwt", { session: false }), (req, r
         return res.status(401).json({ message: "Unauthorized: No token provided or token is invalid" });
     }
     // Return user data (without the hashed password)
-    const { username, email, _id, profileImageUrl } = req.user;
-    res.json({ username, email, _id, profileImageUrl });
+    const { username, email, _id, profileImageUrl, isLead, isHR, registerType, isVerified } = req.user;
+    res.json({ username, email, _id, profileImageUrl, isLead, isHR, registerType, isVerified });
 });
 
 export default router;
