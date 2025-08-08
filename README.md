@@ -40,17 +40,25 @@ To run the backend on your local machine, follow these steps:
     npm install
     ```
 4.  **Set up Environment Variables:**
-    Create a `.env` file in the root of the project and add the necessary configuration values (e.g., database connection string, JWT secret).
-5.  **Navigate to the chatbot directory:**
+    Create a `.env` file in the root of the project and add the necessary configuration values (e.g., database connection string, JWT secret). Example:
+    ```.env
+    MONGO_URL="your-mongodb-string"
+    JWT_SECRET_KEY="your-jwt-secret"
+    GOOGLE_APP_PASSWORD="your-google-app-password"
+    GOOGLE_CLIENT_ID="your-google-client-id"
+    GOOGLE_SECRET="your-google-secret"
+    OPENAI_API_KEY="your-openai-api-key"
+    ```
+6.  **Navigate to the chatbot directory:**
     ```bash
     cd chatbot
     ```
-6.  **Install python libraries for chatbot:**
+7.  **Install python libraries for chatbot:**
     ```bash
     pip install -r requirements.txt
     cd ../
     ```
-7.  **Start the server:**
+8.  **Start the server:**
     ```bash
     npm start
     ```
